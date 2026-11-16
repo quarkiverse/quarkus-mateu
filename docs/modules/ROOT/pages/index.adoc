@@ -30,7 +30,7 @@ Then add the Mateu annotation processor to the compiler. It generates one Quarku
             <path>
                 <groupId>io.mateu</groupId>
                 <artifactId>mateu-annotation-processor-quarkus</artifactId>
-                <version>3.0.0</version> <!-- the Mateu version this extension brings -->
+                <version>3.0.1</version> <!-- the Mateu version this extension brings -->
             </path>
             <!-- list every other processor you use here too, Lombok for example -->
         </annotationProcessorPaths>
@@ -44,7 +44,7 @@ If the processor is missing, the build fails and says so (otherwise every route 
 
 [source,java]
 ----
-import io.mateu.uidl.annotations.Action;
+import io.mateu.uidl.annotations.Button;
 import io.mateu.uidl.annotations.Title;
 import io.mateu.uidl.annotations.UI;
 import io.mateu.uidl.data.Message;
@@ -59,7 +59,7 @@ public class Home {
 
     String name;              // a text field
 
-    @Action                   // a button
+    @Button                   // a button
     Message greet() {
         return Message.success(greetings.greet(name));
     }
