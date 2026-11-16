@@ -1,0 +1,14 @@
+name: Mateu
+description: "Model-driven UIs: declare the model once in Java and Mateu renders forms, CRUDs, wizards and app shells, with no frontend code."
+metadata:
+  keywords:
+    - mateu
+    - ui
+    - model-driven
+    - low-code
+    - crud
+    - backoffice
+  guide: https://docs.quarkiverse.io/quarkus-mateu/dev/
+  categories:
+    - "web"
+  status: "experimental"

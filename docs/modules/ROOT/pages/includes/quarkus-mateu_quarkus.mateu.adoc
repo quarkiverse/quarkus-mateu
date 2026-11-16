@@ -1,0 +1,53 @@
+[.configuration-legend]
+icon:lock[title=Fixed at build time] Configuration property fixed at build time - All other configuration properties are overridable at runtime
+[.configuration-reference.searchable, cols="80,.^10,.^10"]
+|===
+
+h|[.header-title]##Configuration property##
+h|Type
+h|Default
+
+a|icon:lock[title=Fixed at build time] [[quarkus-mateu_quarkus-mateu-verify-generated-controllers]] [.property-path]##link:#quarkus-mateu_quarkus-mateu-verify-generated-controllers[`+++quarkus.mateu.verify-generated-controllers+++`]##
+ifdef::add-copy-button-to-config-props[]
+config_property_copy_button:+++quarkus.mateu.verify-generated-controllers+++[]
+endif::add-copy-button-to-config-props[]
+
+
+[.description]
+--
+Fail the build when a `@UI` class of the application has no generated controller, which means the Mateu annotation processor (`io.mateu:mateu-annotation-processor-quarkus`) did not run. Without it every route of that UI answers 404.
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_MATEU_VERIFY_GENERATED_CONTROLLERS+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_MATEU_VERIFY_GENERATED_CONTROLLERS+++`
+endif::add-copy-button-to-env-var[]
+--
+|boolean
+|`+++true+++`
+
+a|icon:lock[title=Fixed at build time] [[quarkus-mateu_quarkus-mateu-keep-injected-beans]] [.property-path]##link:#quarkus-mateu_quarkus-mateu-keep-injected-beans[`+++quarkus.mateu.keep-injected-beans+++`]##
+ifdef::add-copy-button-to-config-props[]
+config_property_copy_button:+++quarkus.mateu.keep-injected-beans+++[]
+endif::add-copy-button-to-config-props[]
+
+
+[.description]
+--
+Keep the beans that Mateu injects into the view models it instantiates itself. Mateu creates a routed view model per request and fills its `@Inject` fields from the container, so ArC sees no injection point for those services and would remove them as unused. When enabled, the extension marks the types of those injection points, and every bean implementing a Mateu interface (`CrudStore`, `ListingExporter`, `PrincipalResolver`...), as unremovable.
+
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_MATEU_KEEP_INJECTED_BEANS+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_MATEU_KEEP_INJECTED_BEANS+++`
+endif::add-copy-button-to-env-var[]
+--
+|boolean
+|`+++true+++`
+
+|===
+

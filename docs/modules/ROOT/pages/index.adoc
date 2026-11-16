@@ -1,0 +1,96 @@
+= Quarkus Mateu
+
+include::./includes/attributes.adoc[]
+
+https://mateu.io[Mateu] is a model-driven UI system: you declare the model of a screen once, as an annotated Java class, and Mateu renders forms, CRUDs, wizards, dashboards and full app shells from it. There is no frontend code to write for a typical business application. Mateu is Apache-2.0 and published on Maven Central as `io.mateu:*`.
+
+This extension brings Mateu to a Quarkus application: the Mateu runtime for Quarkus, Quarkus REST with Jackson (the Mateu wire format) and the default web renderer, served by the application itself.
+
+== Installation
+
+Add the extension:
+
+[source,xml,subs=attributes+]
+----
+<dependency>
+    <groupId>io.quarkiverse.mateu</groupId>
+    <artifactId>quarkus-mateu</artifactId>
+    <version>{project-version}</version>
+</dependency>
+----
+
+Then add the Mateu annotation processor to the compiler. It generates one Quarkus REST resource for each `@UI` class, at compile time:
+
+[source,xml]
+----
+<plugin>
+    <artifactId>maven-compiler-plugin</artifactId>
+    <configuration>
+        <annotationProcessorPaths>
+            <path>
+                <groupId>io.mateu</groupId>
+                <artifactId>mateu-annotation-processor-quarkus</artifactId>
+                <version>3.0.0</version> <!-- the Mateu version this extension brings -->
+            </path>
+            <!-- list every other processor you use here too, Lombok for example -->
+        </annotationProcessorPaths>
+    </configuration>
+</plugin>
+----
+
+If the processor is missing, the build fails and says so (otherwise every route of the UI would answer 404).
+
+== Your first screen
+
+[source,java]
+----
+import io.mateu.uidl.annotations.Action;
+import io.mateu.uidl.annotations.Title;
+import io.mateu.uidl.annotations.UI;
+import io.mateu.uidl.data.Message;
+import jakarta.inject.Inject;
+
+@UI("")                       // mounted at the root of the application
+@Title("Hello")
+public class Home {
+
+    @Inject
+    Greetings greetings;      // any bean of yours
+
+    String name;              // a text field
+
+    @Action                   // a button
+    Message greet() {
+        return Message.success(greetings.greet(name));
+    }
+}
+----
+
+Run `mvn quarkus:dev` and open http://localhost:8080. Mateu creates the view model fresh for every request and injects its `@Inject` fields from the container; the extension keeps those beans even though ArC sees no injection point for them.
+
+In dev mode, Mateu's development mode is on: the browser re-renders when the code is recompiled.
+
+== What the extension does for you
+
+* Brings `io.mateu:mateu-quarkus`, `io.mateu:mateu-vaadin` and `quarkus-rest-jackson`.
+* Keeps the beans Mateu injects into its view models and the beans implementing Mateu interfaces (`CrudStore`, `ListingExporter`, `PrincipalResolver`...), so `quarkus.arc.remove-unused-beans` can stay at its default.
+* Fails the build when a `@UI` class has no generated controller.
+* Serves the renderer assets (`/assets`, `/js`, `/_redwood`...) from the classpath.
+
+== Mateu settings
+
+Mateu's own settings keep their `mateu.*` names and are read from the Quarkus configuration, for example `mateu.cors.allowed-origins`, `mateu.mcp.enabled` or `mateu.actions.strict`. See https://mateu.io for the full list.
+
+== Native image
+
+Not supported yet. Mateu maps every view model reflectively; the extension registers the renderer resources and the wire DTOs, but not the application classes reachable from the view models.
+
+== Learn more
+
+* Mateu documentation: https://mateu.io
+* Source: https://github.com/miguelperezcolom/mateu
+
+[[extension-configuration-reference]]
+== Extension Configuration Reference
+
+include::includes/quarkus-mateu.adoc[leveloffset=+1, opts=optional]
