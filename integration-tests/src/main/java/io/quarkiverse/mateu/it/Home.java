@@ -2,7 +2,7 @@ package io.quarkiverse.mateu.it;
 
 import jakarta.inject.Inject;
 
-import io.mateu.uidl.annotations.Action;
+import io.mateu.uidl.annotations.Button;
 import io.mateu.uidl.annotations.Title;
 import io.mateu.uidl.annotations.UI;
 import io.mateu.uidl.data.Message;
@@ -17,7 +17,7 @@ public class Home {
 
     String name;
 
-    @Action
+    @Button
     Message greet() {
         return Message.success(greetings.greet(name));
     }
