@@ -9,7 +9,7 @@
     </parent>
     <groupId>io.quarkiverse.mateu</groupId>
     <artifactId>quarkus-mateu-parent</artifactId>
-    <version>999-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>Quarkus Mateu - Parent</name>
 
@@ -22,7 +22,8 @@
         <connection>scm:git:git@github.com:quarkiverse/quarkus-mateu.git</connection>
         <developerConnection>scm:git:git@github.com:quarkiverse/quarkus-mateu.git</developerConnection>
         <url>https://github.com/quarkiverse/quarkus-mateu</url>
-    </scm>
+      <tag>1.0.0</tag>
+  </scm>
 
     <properties>
         <compiler-plugin.version>3.16.0</compiler-plugin.version>
