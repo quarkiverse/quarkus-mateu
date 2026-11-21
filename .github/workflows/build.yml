@@ -61,6 +61,6 @@ jobs:
       - name: Build with Maven
         run: mvn -B clean install -Dno-format
 
-      # Native is not supported yet (Mateu maps the view models reflectively): re-enable once it is.
-      # - name: Build with Maven (Native)
-      #   run: mvn -B install -Dnative -Dquarkus.native.container-build -Dnative.surefire.skip
+      # The integration tests again, against the native executable (built in a Mandrel container).
+      - name: Build with Maven (Native)
+        run: mvn -B install -Dnative -Dquarkus.native.container-build -Dnative.surefire.skip -Dno-format

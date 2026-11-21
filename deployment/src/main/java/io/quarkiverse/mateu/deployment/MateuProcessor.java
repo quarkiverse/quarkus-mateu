@@ -25,8 +25,11 @@ import io.quarkus.deployment.builditem.ApplicationIndexBuildItem;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.IndexDependencyBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.NativeImageProxyDefinitionBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBundleBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceDirectoryBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 
 class MateuProcessor {
 
@@ -160,30 +163,114 @@ class MateuProcessor {
     }
 
     /**
-     * Native image: the renderer assets, the specs and the wire DTOs. This is NOT enough for a
-     * native Mateu app yet (Mateu maps every view model reflectively, so its fields, methods and
-     * the types they reach would need registering too); it is the part that is known up front.
+     * Native image. Mateu maps every view model REFLECTIVELY at run time: it instantiates the class a
+     * request names ({@code serverSideType}), walks its fields, methods, record components and
+     * annotations, fills its state through Jackson and invokes its action methods — and reaches
+     * further classes by name (routes.yaml view models), by generic arguments ({@code AutoCrud<T>})
+     * and by field types ({@code @Menu}). A walk of the graph from each {@code @UI} would always
+     * miss some, so the whole surface Mateu can reflect on is registered instead: every class of
+     * the application, every class of Mateu's own artifacts ({@code io.mateu.*}: the UIDL, the
+     * core's archetypes and the wire DTOs) and every class of a UI module the app depends on (a jar
+     * indexed by Mateu's indexer, {@code META-INF/mateu/ui-registrations}). Applications are small;
+     * the cost is a larger image, not a broken screen.
      */
     @BuildStep
     void nativeImage(CombinedIndexBuildItem combinedIndex, ApplicationIndexBuildItem applicationIndex,
             BuildProducer<NativeImageResourceDirectoryBuildItem> resources,
+            BuildProducer<NativeImageProxyDefinitionBuildItem> proxies,
+            BuildProducer<RuntimeInitializedClassBuildItem> runtimeInit,
+            BuildProducer<NativeImageResourceBundleBuildItem> bundles,
             BuildProducer<ReflectiveClassBuildItem> reflection) {
-        resources.produce(new NativeImageResourceDirectoryBuildItem("static"));
-        resources.produce(new NativeImageResourceDirectoryBuildItem("META-INF/mateu"));
-        resources.produce(new NativeImageResourceDirectoryBuildItem("specs"));
-        List<String> classes = new ArrayList<>();
-        for (ClassInfo dto : combinedIndex.getIndex().getKnownClasses()) {
-            String name = dto.name().toString();
-            if (name.startsWith("io.mateu.dtos.")) {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        // only what exists: Quarkus fails the build on a resource directory that is not there
+        for (String dir : List.of("static", "META-INF/mateu", "specs", "io/mateu/core/infra/pwa")) {
+            if (loader.getResource(dir) != null) {
+                resources.produce(new NativeImageResourceDirectoryBuildItem(dir));
+            }
+        }
+        // the validation messages Mateu shows next to a field (ValidationLocale reads Hibernate
+        // Validator's bundles for the request's language)
+        for (String bundle : List.of("org.hibernate.validator.ValidationMessages", "ValidationMessages")) {
+            if (loader.getResource(bundle.replace('.', '/') + ".properties") != null) {
+                bundles.produce(new NativeImageResourceBundleBuildItem(bundle));
+            }
+        }
+        // RequestOverride wraps the request in a JDK proxy of HttpRequest
+        proxies.produce(new NativeImageProxyDefinitionBuildItem("io.mateu.uidl.interfaces.HttpRequest"));
+
+        Set<String> classes = new java.util.TreeSet<>();
+        for (ClassInfo type : applicationIndex.getIndex().getKnownClasses()) {
+            classes.add(type.name().toString());
+        }
+        for (ClassInfo type : combinedIndex.getIndex().getKnownClasses()) {
+            String name = type.name().toString();
+            if (name.startsWith("io.mateu.") && !name.startsWith("io.mateu.annotationprocessing.")) {
                 classes.add(name);
             }
         }
-        for (AnnotationInstance ui : applicationIndex.getIndex().getAnnotations(UI)) {
-            if (ui.target().kind() == AnnotationTarget.Kind.CLASS) {
-                classes.add(ui.target().asClass().name().toString());
+        // A Mateu class whose signatures name an OPTIONAL dependency the app does not have (OpenTelemetry
+        // for OtelTelemetry, …) must not be registered: native-image would link it and fail. Resolve
+        // each one's members here, on the app's classpath, and leave out what does not resolve.
+        List<String> resolvable = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        for (String name : classes) {
+            if (resolves(name, loader)) {
+                resolvable.add(name);
+            } else {
+                skipped.add(name);
             }
         }
-        reflection.produce(ReflectiveClassBuildItem.builder(classes.toArray(String[]::new))
+        // Mateu's own classes keep run-time state in statics (agent sessions holding a SecureRandom,
+        // caches, idempotency tables…): initialized at build time, that state would be frozen into the
+        // image heap. They initialize at run time. Only the classes Mateu SHIPS (from the index) — the
+        // beans ArC generates in the same packages must stay build-time initialized.
+        for (String name : resolvable) {
+            if (name.startsWith("io.mateu.")) {
+                runtimeInit.produce(new RuntimeInitializedClassBuildItem(name));
+            }
+        }
+        // An application class holding a Mateu object in a STATIC field (the controllers Mateu's
+        // processor generates keep their IndexPage.Spec there) would put it in the image heap at build
+        // time, while its class initializes at run time: it initializes at run time too.
+        for (ClassInfo type : applicationIndex.getIndex().getKnownClasses()) {
+            boolean holdsMateuState = type.fields().stream()
+                    .anyMatch(f -> java.lang.reflect.Modifier.isStatic(f.flags())
+                            && f.type().name().toString().startsWith("io.mateu."));
+            if (holdsMateuState) {
+                runtimeInit.produce(new RuntimeInitializedClassBuildItem(type.name().toString()));
+            }
+        }
+        // Arrays created reflectively (Array.newInstance): commons-beanutils' ConvertUtilsBean, which
+        // Mateu's type coercion uses, builds an array converter for each of these types when it
+        // starts; Mateu's own coercion builds arrays of the app's types for array fields.
+        List<String> arrays = new ArrayList<>(List.of("[Z", "[B", "[C", "[D", "[F", "[I", "[J", "[S"));
+        for (String element : List.of("java.io.File", "java.lang.Boolean", "java.lang.Byte",
+                "java.lang.Character", "java.lang.Class", "java.lang.Double", "java.lang.Float",
+                "java.lang.Integer", "java.lang.Long", "java.lang.Short", "java.lang.String",
+                "java.math.BigDecimal", "java.math.BigInteger", "java.net.URL", "java.sql.Date",
+                "java.sql.Time", "java.sql.Timestamp", "java.util.Calendar", "java.util.Date")) {
+            arrays.add("[L" + element + ";");
+        }
+        for (ClassInfo type : applicationIndex.getIndex().getKnownClasses()) {
+            arrays.add("[L" + type.name().toString() + ";");
+        }
+        reflection.produce(ReflectiveClassBuildItem.builder(arrays.toArray(String[]::new)).build());
+        reflection.produce(ReflectiveClassBuildItem.builder(resolvable.toArray(String[]::new))
                 .constructors().methods().fields().build());
+        LOG.debugf(
+                "Mateu: %d classes registered for reflection in the native image, %d left out (optional dependencies absent): %s",
+                resolvable.size(), skipped.size(), skipped);
+    }
+
+    private static boolean resolves(String name, ClassLoader loader) {
+        try {
+            Class<?> type = Class.forName(name, false, loader);
+            type.getDeclaredFields();
+            type.getDeclaredMethods();
+            type.getDeclaredConstructors();
+            return true;
+        } catch (LinkageError | ClassNotFoundException | TypeNotPresentException e) {
+            return false;
+        }
     }
 }
