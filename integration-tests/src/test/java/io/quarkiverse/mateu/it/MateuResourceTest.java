@@ -81,4 +81,47 @@ public class MateuResourceTest {
                 .then()
                 .statusCode(403);
     }
+
+    private static String crud(String route, String actionId, String componentState) {
+        return """
+                {"serverSideType": "io.quarkiverse.mateu.it.Products", "route": "%s", "consumedRoute": "",
+                 "actionId": "%s", "componentState": %s, "parameters": {}, "appState": {}}
+                """.formatted(route, actionId, componentState);
+    }
+
+    @Test
+    public void listsTheRecordsOfACrud() {
+        given().contentType(ContentType.JSON)
+                .body(crud("", "search", "{}"))
+                .when().post("/products/mateu/v3/sync/")
+                .then()
+                .statusCode(200)
+                .body(containsString("Espresso machine"))
+                .body(containsString("OutOfStock"));
+    }
+
+    @Test
+    public void createsARecordFromTheFormState() {
+        given().contentType(ContentType.JSON)
+                .body(crud("/new", "create",
+                        "{\"id\": \"P-077\", \"name\": \"Moka pot\", \"price\": 25, \"status\": \"Available\"}"))
+                .when().post("/products/mateu/v3/sync/new")
+                .then()
+                .statusCode(200);
+        given().contentType(ContentType.JSON)
+                .body(crud("", "search", "{}"))
+                .when().post("/products/mateu/v3/sync/")
+                .then()
+                .statusCode(200)
+                .body(containsString("Moka pot"));
+    }
+
+    @Test
+    public void refusesACreateWithEmptyRequiredFieldsWithItsMessage() {
+        given().contentType(ContentType.JSON)
+                .body(crud("/new", "create", "{\"price\": 0}"))
+                .when().post("/products/mateu/v3/sync/new")
+                .then()
+                .body(containsString("There are validation errors"));
+    }
 }

@@ -83,7 +83,17 @@ Mateu's own settings keep their `mateu.*` names and are read from the Quarkus co
 
 == Native image
 
-Not supported yet. Mateu maps every view model reflectively; the extension registers the renderer resources and the wire DTOs, but not the application classes reachable from the view models.
+Supported: build with `-Dnative` (or `-Dquarkus.native.container-build=true` without a local GraalVM/Mandrel) and nothing else changes.
+
+Mateu maps every view model reflectively at run time: it instantiates the class a request names, walks its fields, methods and record components, fills its state from the form and invokes its actions — and reaches further classes by name, through generic arguments (`AutoCrud<Product>`) and through `@Menu` fields. Rather than guessing that graph, the extension registers the whole surface Mateu can reflect on:
+
+* every class of the application, and arrays of them;
+* every class of Mateu's own artifacts, except those that need an optional dependency the application does not have (OpenTelemetry, for example);
+* the renderer's assets, the PWA resources, `specs/` and the validation message bundles.
+
+Mateu's classes, and any application class that keeps a Mateu object in a static field (such as the controllers the annotation processor generates), are initialized at run time. The image is somewhat larger than a strictly minimal one; in exchange, a screen does not break because a class reachable from it was missed.
+
+The integration tests run against the native executable in CI.
 
 == Learn more
 
