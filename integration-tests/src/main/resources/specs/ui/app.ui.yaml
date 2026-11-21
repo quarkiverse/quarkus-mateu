@@ -1,0 +1,7 @@
+# A mount declared as data (the YAML twin of @UI): exercises specs/ discovery, which a native image
+# reads from its own resources (resource: scheme) instead of a directory or a jar.
+type: UI
+basePath: /yaml
+home: catalogue
+routes:
+  - routes.yaml

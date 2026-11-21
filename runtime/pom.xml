@@ -36,6 +36,19 @@
         <dependency>
             <groupId>io.mateu</groupId>
             <artifactId>mateu-quarkus</artifactId>
+            <exclusions>
+                <!-- Quarkus routes commons-logging to JBoss Logging; the real jar (from commons-beanutils)
+                     next to that bridge — which other extensions bring, e.g. the Google Cloud ones —
+                     broke the native build (Log4jApiLogFactory linked without Log4j) -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.logging</groupId>
+            <artifactId>commons-logging-jboss-logging</artifactId>
         </dependency>
         <!-- The default web renderer, served from the classpath static/ folder by the adapter.
              An app that wants the Redwood renderer excludes it and adds io.mateu:mateu-redwood. -->

@@ -1,0 +1,5 @@
+type: Form
+title: Catalogue from YAML
+content:
+  - type: Text
+    text: This screen is declared as data.

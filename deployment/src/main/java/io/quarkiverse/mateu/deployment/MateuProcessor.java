@@ -27,7 +27,7 @@ import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.IndexDependencyBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageProxyDefinitionBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBundleBuildItem;
-import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceDirectoryBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.NativeImageResourcePatternsBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.RuntimeInitializedClassBuildItem;
 
@@ -176,18 +176,18 @@ class MateuProcessor {
      */
     @BuildStep
     void nativeImage(CombinedIndexBuildItem combinedIndex, ApplicationIndexBuildItem applicationIndex,
-            BuildProducer<NativeImageResourceDirectoryBuildItem> resources,
+            BuildProducer<NativeImageResourcePatternsBuildItem> resources,
             BuildProducer<NativeImageProxyDefinitionBuildItem> proxies,
             BuildProducer<RuntimeInitializedClassBuildItem> runtimeInit,
             BuildProducer<NativeImageResourceBundleBuildItem> bundles,
             BuildProducer<ReflectiveClassBuildItem> reflection) {
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        // only what exists: Quarkus fails the build on a resource directory that is not there
-        for (String dir : List.of("static", "META-INF/mateu", "specs", "io/mateu/core/infra/pwa")) {
-            if (loader.getResource(dir) != null) {
-                resources.produce(new NativeImageResourceDirectoryBuildItem(dir));
-            }
-        }
+        // As patterns, not NativeImageResourceDirectoryBuildItem: that one only walks a directory
+        // INSIDE A JAR, and only the first one found — the app's own specs/ (a plain directory) failed
+        // the build, and a second jar's static/ would be skipped. Patterns cover every classpath entry.
+        resources.produce(NativeImageResourcePatternsBuildItem.builder()
+                .includeGlobs("static/**", "META-INF/mateu/**", "specs/**", "io/mateu/core/infra/pwa/**")
+                .build());
         // the validation messages Mateu shows next to a field (ValidationLocale reads Hibernate
         // Validator's bundles for the request's language)
         for (String bundle : List.of("org.hibernate.validator.ValidationMessages", "ValidationMessages")) {

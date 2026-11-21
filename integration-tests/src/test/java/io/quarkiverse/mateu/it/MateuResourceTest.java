@@ -124,4 +124,17 @@ public class MateuResourceTest {
                 .then()
                 .body(containsString("There are validation errors"));
     }
+
+    @Test
+    public void servesAScreenDeclaredInYaml() {
+        given().contentType(ContentType.JSON)
+                .body("""
+                        {"route": "/catalogue", "consumedRoute": "", "actionId": "",
+                         "componentState": {}, "parameters": {}, "appState": {}}
+                        """)
+                .when().post("/yaml/mateu/v3/sync/catalogue")
+                .then()
+                .statusCode(200)
+                .body(containsString("Catalogue from YAML"));
+    }
 }
