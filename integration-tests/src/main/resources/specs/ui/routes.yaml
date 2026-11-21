@@ -1,0 +1,4 @@
+type: Routes
+routes:
+  - route: catalogue
+    layout: catalogue.yaml
